@@ -1,0 +1,183 @@
+---
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Probability
+
+## Parameters , estimates, and estimators
+
+### Abstract
+* **Parameter** -- Target unknown feature of a population (nonrandom)
+* **Estimate** -- Value computed from observed data to approximate the parameter (nonrandom)
+* **Estimator** -- A function of a random sample to approximate the parameter
+
+
+
+### Estimates 
+
+An **estimate** is a function of the observed sample, and it is not random. We ofeten use lowercase letters to make that clear, like
+\[
+\bar x = n^{-1} \sum_{i=1}^n x_i
+\]
+
+### Estimators
+
+An **estimator ** is a function of the random sample, and it is random. We often use uppercase letters to make that clear, like
+\[
+\hat p = \bar X = n^{-1} \sum_{i=1}^n X_i
+\]
+
+#### Properties of estimators
+We can use features of our estimators to make probabilistic statements about what might happen if we repeat our study. **Dataset-to-Dataset variability**.
+
+ * **Bias:** let $p$ denote our target parameter, bias is defined as
+ \[
+\mathbb{E} (\hat{p} - p).
+ \]
+ 
+ * **Variance:** this is the same as for other random variables
+ \[
+ \mathbb{E} (\hat p - \mathbb{E}\hat p)^2
+ \]
+ 
+ * **Mean Squared Error:** this combines variance and bias:
+ \[
+ \mathbb{E}(\hat p - p)^2
+ \]
+
+* **Consistency:** this describes what happens to the estimator as $n\to\infty$
+\[
+\hat p \to_P p
+\]
+* The arrow is convergence in probability. More on this later.
+
+
+* **Asymptotically unbiased:** is a less strong statement of what happens to the estimator as $n\to\infty$
+\[
+\mathbb{E} \hat p \to p
+\]
+
+
+## Simulation
+
+
+In statistics, probability is used to define and describe the behavior of estimators.
+
+
+* Often, the distribution of an estimator is makes it too hard to find the bias, variance, and MSE of the estimator.
+* In this case, we use simulations to *estimate* the bias, variance, and MSE of an estimator.
+* Important concepts for this session:
+  + Simulations can be used to estimate the bias and variance when it is too hard to find mathematically.
+  + Sometimes, the parameter of interest is not distributional parameter.
+
+
+### Concept of simulation study
+* The bias, variance, and MSE are defined with respect to the distribution of the statistic across repeated samples of the data.
+* If I can repeat the experiment in `R` multiple times, then I can see multiple random versions of the estimator.
+* A simulation is an experiment to study what happens across experiments.
+
+### Example 
+
+We use the MxIF example from BIOS6311 1.4.12.In this case,  
+
+* Let $X_i$ denote a randomly drawn cell from the tissue image.
+* Assume $X_i \sim \text{Gamma}(\alpha, \beta)$.
+* Let's consider three parameters
+  1. $\mathbf{E} X_i = \alpha/\beta$
+  2. $\alpha$ (shape parameter)
+  3. $\beta$ (rate parameter)
+* Using method of moments to obtain estimators for these parameters,  
+
+\[
+\begin{align*}
+\hat \mu & = \bar X = n^{-1} \sum_{i=1}^n X_i \\
+\tilde \alpha & = \frac{\bar X^2}{\left(\overline{X^2} - \bar X^2\right)} \\
+\tilde \beta & = \frac{\bar X}{\left(\overline{X^2} - \bar X^2\right)} 
+\end{align*}
+\]  
+
+* We want use simulations to assess the bias, variance, and MSE of these estimators.
+
+```{r, eval=FALSE,message=FALSE, warning=FALSE, error=FALSE,cache=TRUE}
+set.seed(100)
+# number simulation
+nsim = 10000
+# sample sizes
+ns = c(10, 25, 50, 100, 200, 500)
+# values of alpha to consider
+alphas = c(0.5, 5)
+# values of beta to consider
+betas = c(0.25, 3)
+
+
+simResults = expand.grid(alpha = alphas, beta=betas, n=ns)
+colNames = paste(rep(c('muHat', 'alphaTilde', 'betaTilde'), each=3),
+                rep(c('Bias', 'Variance', 'MSE'), 3))
+simResults[, colNames ] = NA
+
+for (scenario in 1:nrow(simResults)){
+  
+      alpha = simResults[scenario,"alphas"]
+      beta = simResults[scenario, "betas"]
+      n = simResults[scenario,"ns"]
+      cat(which(simResults$n==n & simResults$alpha==alpha & simResults$beta == beta), '\t')
+  
+        # each simulation is one realization of the world
+      tempResults = data.frame(muHat = rep(NA, nsim), alphaTilde=rep(NA, nsim), betaTilde=rep(NA, nsim) )
+      
+      for(sim in 1:nsim){
+        
+        # sample a data set of size n from a random variable whose distribution is determined by alpha and beta
+        x = rgamma(n, shape=alpha, rate=beta)
+        
+        # compute estimators
+        muHat = mean(x)
+        alphaTilde = muHat^2 / var(x)
+        betaTilde = muHat / var(x)
+        #sigmaSqHat = sum((x-mean(x))^2)/(length(x)-1)
+        
+        tempResults[sim, c('muHat', 'alphaTilde', 'betaTilde') ] = c(muHat, alphaTilde, betaTilde)
+      } # end of the nsim loop
+      
+      
+      simResults[scenario, c('muHat Bias', 'muHat Variance', 'muHat MSE')] = c(mean(results$muHat) - alpha/beta,var(results$muHat),(mean(results$muHat) - alpha/beta)^2 + var(results$muHat) )
+      simResults[scenario, c('alphaTilde Bias', 'alphaTilde Variance', 'alphaTilde MSE')] = c(mean(results$alphaTilde) - alpha,var(results$alphaTilde),(mean(results$alphaTilde) - alpha)^2 + var(results$alphaTilde) )
+      simResults[scenario, c('betaTilde Bias', 'betaTilde Variance', 'betaTilde MSE')] = c(mean(results$betaTilde) - beta,var(results$betaTilde),(mean(results$betaTilde) - beta)^2 + var(results$betaTilde) )
+}
+
+```
+
+
+
+
+```{r, fig.height=6, fig.width=9,eval=FALSE,message=FALSE, warning=FALSE, error=FALSE,cache=TRUE}
+subres = simResults[ simResults$alpha==0.5 & simResults$beta ==0.25,]
+layout(matrix(1:6, nrow=2, byrow=TRUE))
+
+# Bias plots
+plot(subres$n, subres[, 'muHat Bias'], xlab='Sample size', ylab='Bias', main='Bias of muHat', type='b')
+abline(h=0, lty=2, lwd=2)
+plot(subres$n, subres[, 'alphaTilde Bias'], xlab='Sample size', ylab='Bias', main='Bias of alphaTilde', type='b')
+abline(h=0, lty=2, lwd=2)
+plot(subres$n, subres[, 'betaTilde Bias'], xlab='Sample size', ylab='Bias', main='Bias of betaTilde', type='b')
+abline(h=0, lty=2, lwd=2)
+plot(subres$n, subres[, 'muHat Variance'], xlab='Sample size', ylab='Variance', main='Variance of muHat', type='b')
+abline(h=0, lty=2, lwd=2)
+plot(subres$n, subres[, 'alphaTilde Variance'], xlab='Sample size', ylab='Variance', main='Variance of alphaTilde', type='b')
+abline(h=0, lty=2, lwd=2)
+plot(subres$n, subres[, 'betaTilde Variance'], xlab='Sample size', ylab='Variance', main='Variance of betaTilde', type='b')
+abline(h=0, lty=2, lwd=2)
+
+```
+
+  
+
+
+
+
